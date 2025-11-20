@@ -3,7 +3,8 @@ import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer'; 
 import { MapPin, Phone, Mail, Clock, Send, MessageSquare } from 'lucide-react';
 
-export default function Iletisim() {
+// ⭐️ YENİ: Bileşene tip ataması yapıldı
+const Iletisim: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">
       <Navbar />
@@ -115,17 +116,19 @@ export default function Iletisim() {
                             <form className="space-y-6">
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300 ml-1">Adınız Soyadınız</label>
+                                        <label htmlFor="name" className="text-sm font-medium text-slate-300 ml-1">Adınız Soyadınız</label>
                                         <input 
                                           type="text" 
+                                          id="name"
                                           className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
                                           placeholder="Adınız Soyadınız"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300 ml-1">E-Posta Adresiniz</label>
+                                        <label htmlFor="email" className="text-sm font-medium text-slate-300 ml-1">E-Posta Adresiniz</label>
                                         <input 
                                           type="email" 
+                                          id="email"
                                           className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
                                           placeholder="ornek@email.com"
                                         />
@@ -133,8 +136,8 @@ export default function Iletisim() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Konu</label>
-                                    <select className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none cursor-pointer">
+                                    <label htmlFor="subject" className="text-sm font-medium text-slate-300 ml-1">Konu</label>
+                                    <select id="subject" className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none cursor-pointer">
                                         <option>Genel Bilgi Talebi</option>
                                         <option>Kredi Başvurusu Hakkında</option>
                                         <option>Ödeme ve Borç Sorgulama</option>
@@ -144,15 +147,17 @@ export default function Iletisim() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Mesajınız</label>
+                                    <label htmlFor="message" className="text-sm font-medium text-slate-300 ml-1">Mesajınız</label>
                                     <textarea 
-                                      rows="5"
+                                      rows={5}
+                                      id="message"
                                       className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all resize-none"
                                       placeholder="Mesajınızı buraya yazınız..."
                                     ></textarea>
                                 </div>
 
-                                <button className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/25 transition-all transform hover:scale-[1.01] hover:shadow-indigo-500/40 flex items-center justify-center gap-2">
+                                {/* Burada form submit işlemi JS ile yapılmadığı için, submit handler eklemedim. */}
+                                <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/25 transition-all transform hover:scale-[1.01] hover:shadow-indigo-500/40 flex items-center justify-center gap-2">
                                     <Send size={20} />
                                     Mesajı Gönder
                                 </button>
@@ -183,3 +188,5 @@ export default function Iletisim() {
     </div>
   );
 }
+
+export default Iletisim;

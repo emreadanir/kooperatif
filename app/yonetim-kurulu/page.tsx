@@ -2,8 +2,18 @@ import React from 'react';
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
 
-// Örnek Veri Seti
-const boardMembers = [
+// ⭐️ YENİ: Kurul Üyeleri için Tip Tanımı (Interface)
+interface Member {
+  id: number;
+  name: string;
+  title: string;
+  image: string;
+  // type, 'gold' (Başkan) veya 'silver' (Üye) olabilir
+  type: 'gold' | 'silver'; 
+}
+
+// Örnek Veri Seti (Tip uygulaması eklendi)
+const boardMembers: Member[] = [
   {
     id: 1,
     name: "Ahmet SALDIZ",
@@ -43,8 +53,9 @@ const boardMembers = [
 
 export default function YonetimKurulu() {
   
-  const president = boardMembers.find(m => m.type === 'gold');
-  const members = boardMembers.filter(m => m.type !== 'gold');
+  // Filtreleme sonuçlarına da tip uygulayabiliriz (isteğe bağlı ama önerilir)
+  const president = boardMembers.find((m): m is Member => m.type === 'gold');
+  const members = boardMembers.filter(m => m.type !== 'gold') as Member[];
 
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">

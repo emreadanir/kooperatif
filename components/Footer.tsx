@@ -1,14 +1,44 @@
 "use client";
 
-import React from 'react';
+import React, { useCallback } from 'react'; // useCallback eklendi
 import Link from 'next/link';
-import { Phone, Mail, MapPin, Landmark, Facebook, Twitter, Instagram, ChevronRight, ArrowRight } from 'lucide-react';
+import { Phone, Mail, MapPin, Landmark, Facebook, Twitter, Instagram, ChevronRight, ArrowRight, LucideIcon } from 'lucide-react';
 
-export default function Footer() {
+// ⭐️ YENİ: Link öğeleri için Tip Tanımı
+interface LinkItem {
+    name: string;
+    href: string;
+}
+
+// ⭐️ YENİ: Footer bileşenine tip ataması yapıldı
+const Footer: React.FC = () => {
   
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  // ⭐️ YENİ: scrollToTop fonksiyonuna tip ataması yapıldı
+  const scrollToTop = useCallback((): void => {
+    // window nesnesinin varlığını kontrol ediyoruz (Next.js SSR uyumluluğu için)
+    if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Hızlı Erişim Linkleri (Tip uygulaması yapıldı)
+  const quickAccessLinks: LinkItem[] = [
+    { name: 'Anasayfa', href: '/' },
+    { name: 'Kredi Çeşitleri', href: '/kredi-cesitleri' },
+    { name: 'Kredi Hesaplama', href: '/kredi-kullanim-sartlari' },
+    { name: 'Personel Kadrosu', href: '/personel-kadrosu' },
+  ];
+
+  // Mevzuat Linkleri (Sadece isimleri içeren bir string dizisi, URL'ler tekrar ediyor)
+  const mevzuatNames: string[] = [
+    'Ana Sözleşme',
+    'Esnaf ve Sanatkarlar Kanunu',
+    'Kredi Yönetmeliği',
+    'Bilgi Edinme Hakkı'
+  ];
+  
+  // Sosyal Medya İkonları dizisi (LucideIcon tipini kullanıyoruz)
+  const socialIcons: LucideIcon[] = [Facebook, Twitter, Instagram];
 
   return (
     <footer className="relative bg-[#0f172a] pt-24 pb-10 overflow-hidden border-t border-slate-800">
@@ -43,7 +73,7 @@ export default function Footer() {
 
             {/* Sosyal Medya İkonları */}
             <div className="flex gap-4 pt-2">
-              {[Facebook, Twitter, Instagram].map((Icon, index) => (
+              {socialIcons.map((Icon, index: number) => (
                 <a key={index} href="#" className="w-10 h-10 rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-600 hover:border-indigo-500 transition-all duration-300 shadow-lg hover:shadow-indigo-500/30">
                   <Icon size={18} />
                 </a>
@@ -58,12 +88,7 @@ export default function Footer() {
               Hızlı Erişim
             </h4>
             <ul className="space-y-3">
-              {[
-                { name: 'Anasayfa', href: '/' },
-                { name: 'Kredi Çeşitleri', href: '/kredi-cesitleri' },
-                { name: 'Kredi Hesaplama', href: '/kredi-kullanim-sartlari' },
-                { name: 'Personel Kadrosu', href: '/personel-kadrosu' },
-              ].map((item, idx) => (
+              {quickAccessLinks.map((item: LinkItem, idx: number) => (
                 <li key={idx}>
                   <Link 
                     href={item.href} 
@@ -84,12 +109,7 @@ export default function Footer() {
               Mevzuat
             </h4>
             <ul className="space-y-3">
-              {[
-                'Ana Sözleşme',
-                'Esnaf ve Sanatkarlar Kanunu',
-                'Kredi Yönetmeliği',
-                'Bilgi Edinme Hakkı'
-              ].map((item, idx) => (
+              {mevzuatNames.map((item: string, idx: number) => (
                 <li key={idx}>
                   <Link 
                     href="/kanun-ve-yonetmelikler" 
@@ -157,3 +177,5 @@ export default function Footer() {
     </footer>
   );
 }
+
+export default Footer;

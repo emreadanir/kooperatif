@@ -1,16 +1,34 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // React, useState, useEffect ve useCallback import edildi
 import Link from 'next/link';
 import { Menu, X, CreditCard, Landmark, ChevronDown, Calculator, Search } from 'lucide-react';
 
-export default function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [openMobileSubmenu, setOpenMobileSubmenu] = useState(null);
-  const [scrolled, setScrolled] = useState(false);
-  // Mobil menüde Online İşlemler'in açık olup olmadığını takip etmek için
-  const [isOnlineMobileOpen, setIsOnlineMobileOpen] = useState(false);
+// ⭐️ YENİ: Alt Menü (SubItem) için Tip Tanımı
+interface SubMenuItem {
+    name: string;
+    href: string;
+}
 
+// ⭐️ YENİ: Ana Menü Öğesi (MenuItem) için Tip Tanımı
+interface MenuItem {
+    name: string;
+    href: string;
+    subItems?: SubMenuItem[]; // Alt öğeler opsiyoneldir
+}
+
+// ⭐️ YENİ: Bileşen Props'ları (Şu an props yok, ama tip tanımını koruyoruz)
+interface NavbarProps {}
+
+
+const Navbar: React.FC<NavbarProps> = () => {
+  // --- State Tanımları (Tipler atandı) ---
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState<boolean>(false);
+  const [isOnlineMobileOpen, setIsOnlineMobileOpen] = useState<boolean>(false);
+
+  // Scroll olayını yöneten useEffect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
@@ -19,7 +37,8 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const menuItems = [
+  // Menü Verileri (Tip uygulaması yapıldı)
+  const menuItems: MenuItem[] = [
     { name: 'Anasayfa', href: '/' },
     { 
       name: 'Kredi Koşulları', 
@@ -43,19 +62,20 @@ export default function Navbar() {
     { name: 'İletişim', href: '/iletisim' },
   ];
 
-  const closeMenu = () => {
+  // Fonksiyonlara tip ataması yapıldı (useCallback ile daha performanslı ve tipli)
+  const closeMenu = useCallback((): void => {
     setIsMenuOpen(false);
     setOpenMobileSubmenu(null);
     setIsOnlineMobileOpen(false);
-  };
+  }, []);
 
-  const toggleMobileSubmenu = (name) => {
+  const toggleMobileSubmenu = useCallback((name: string): void => {
     if (openMobileSubmenu === name) {
       setOpenMobileSubmenu(null);
     } else {
       setOpenMobileSubmenu(name);
     }
-  };
+  }, [openMobileSubmenu]);
 
   return (
     <nav 
@@ -84,7 +104,7 @@ export default function Navbar() {
 
           {/* --- MASAÜSTÜ MENÜ --- */}
           <div className="hidden lg:flex items-center space-x-1">
-            {menuItems.map((item) => (
+            {menuItems.map((item: MenuItem) => ( // Tip ataması yapıldı
               <div key={item.name} className="relative group/menu">
                 {item.subItems ? (
                   <button className="flex items-center px-4 py-2.5 text-slate-300 hover:text-white font-medium transition-all duration-300 text-sm rounded-full hover:bg-white/5 border border-transparent hover:border-white/10">
@@ -104,11 +124,12 @@ export default function Navbar() {
                   <div className="absolute left-0 mt-4 w-64 bg-[#0f172a]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/50 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-300 transform origin-top-left translate-y-2 group-hover/menu:translate-y-0 z-50 overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-indigo-500 to-amber-500"></div>
                     <div className="p-2">
-                      {item.subItems.map((subItem, subIndex) => (
+                      {item.subItems.map((subItem: SubMenuItem, subIndex: number) => ( // Tip ataması yapıldı
                         <Link
                           key={subIndex}
                           href={subItem.href}
                           className="block px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-all group/item relative overflow-hidden"
+                          onClick={closeMenu} // Mobil menüdeki gibi masaüstünde de menüyü kapatmak için eklendi
                         >
                           <span className="relative z-10">{subItem.name}</span>
                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 opacity-0 group-hover/item:opacity-100 transition-opacity"></div>
@@ -134,7 +155,7 @@ export default function Navbar() {
                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600"></div>
                  <div className="p-2 space-y-1">
                     {/* Kredi Hesaplama Linki */}
-                    <Link href="/kredi-hesaplama" className="flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-white/5 group/item transition-colors">
+                    <Link href="/kredi-hesaplama" className="flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-white/5 group/item transition-colors" onClick={closeMenu}>
                         <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center group-hover/item:bg-amber-500/20 transition-colors">
                            <Calculator size={20} className="text-amber-400" />
                         </div>
@@ -145,7 +166,7 @@ export default function Navbar() {
                     </Link>
                     
                     {/* Limit Sorgulama Linki */}
-                    <Link href="/limit-sorgulama" className="flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-white/5 group/item transition-colors">
+                    <Link href="/limit-sorgulama" className="flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-white/5 group/item transition-colors" onClick={closeMenu}>
                         <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center group-hover/item:bg-indigo-500/20 transition-colors">
                            <Search size={20} className="text-indigo-400" />
                         </div>
@@ -178,7 +199,7 @@ export default function Navbar() {
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-600/10 rounded-full blur-[80px] pointer-events-none"></div>
             
           <div className="px-4 pt-6 pb-32 space-y-3 relative z-10">
-            {menuItems.map((item) => (
+            {menuItems.map((item: MenuItem) => ( // Tip ataması yapıldı
               <div key={item.name} className="border-b border-slate-800/50 last:border-0 pb-2">
                 {item.subItems ? (
                   <div>
@@ -195,7 +216,7 @@ export default function Navbar() {
                     
                     <div className={`overflow-hidden transition-all duration-300 ${openMobileSubmenu === item.name ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                       <div className="bg-black/20 rounded-xl mt-2 p-2 space-y-1 border border-white/5">
-                        {item.subItems.map((subItem, subIdx) => (
+                        {item.subItems.map((subItem: SubMenuItem, subIdx: number) => ( // Tip ataması yapıldı
                           <Link
                             key={subIdx}
                             href={subItem.href}
@@ -253,3 +274,5 @@ export default function Navbar() {
     </nav>
   );
 }
+
+export default Navbar;

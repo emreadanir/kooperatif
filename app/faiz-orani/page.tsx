@@ -4,7 +4,8 @@ import Footer from '../../components/Footer';
 import { Percent, TrendingDown, Calendar, Info } from 'lucide-react';
 import Link from 'next/link';
 
-export default function FaizOrani() {
+// ⭐️ YENİ: Bileşene tip ataması yapıldı
+const FaizOrani: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">
       <Navbar />
@@ -158,3 +159,5 @@ export default function FaizOrani() {
     </div>
   );
 }
+
+export default FaizOrani;

@@ -6,8 +6,16 @@ import Footer from '../../components/Footer';
 import { Search, CreditCard, TrendingUp, ShieldAlert, CheckCircle2, AlertCircle, Loader2, FileText, Briefcase, Barcode, Info } from 'lucide-react';
 import Link from 'next/link';
 
-// --- NACE KODU VERİ SETİ (Gönderdiğiniz Dosyadan Alındı) ---
-const naceVerileri = [
+// ⭐️ YENİ: NACE Verileri için Tip Tanımı
+interface NaceData {
+    MESLEK: string;
+    NACE_KODU: string;
+    NACE_TANIMI: string;
+    UST_LIMIT_TL: number;
+}
+
+// --- NACE KODU VERİ SETİ (Tip uygulaması yapıldı) ---
+const naceVerileri: NaceData[] = [
     { MESLEK: "Çiçekçilik", NACE_KODU: "11902", NACE_TANIMI: "Çiçek yetiştirilmesi (lale, kasımpatı, zambak, gül vb. ile bunların tohumları)", UST_LIMIT_TL: 600000 },
             { MESLEK: "Çiçekçilik", NACE_KODU: "462108", NACE_TANIMI: "Tohum (yağlı tohumlar hariç) toptan ticareti", UST_LIMIT_TL: 600000 },
             { MESLEK: "Çiçekçilik", NACE_KODU: "462201", NACE_TANIMI: "Çiçeklerin ve bitkilerin toptan ticareti", UST_LIMIT_TL: 600000 },
@@ -163,15 +171,17 @@ const naceVerileri = [
 ];
 
 export default function LimitSorgulama() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchResult, setSearchResult] = useState(null); // null, 'found', 'notfound'
-  const [foundData, setFoundData] = useState(null);
-  const [naceCode, setNaceCode] = useState('');
+  // ⭐️ YENİ: State Tanımları (Tipler atandı)
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  // searchResult durumunu sınırlı string tipleriyle tanımladık
+  const [searchResult, setSearchResult] = useState<'found' | 'notfound' | 'error' | null>(null); 
+  // foundData tipini NaceData veya null olarak tanımladık
+  const [foundData, setFoundData] = useState<NaceData | null>(null); 
+  const [naceCode, setNaceCode] = useState<string>('');
 
-  const handleSearch = (e) => {
+  const handleSearch = (e: React.FormEvent): void => { // event tipini React.FormEvent olarak tanımladık
     e.preventDefault();
     if (naceCode.length !== 6) { 
-        // 6 haneli kontrolü ekleyelim
         setSearchResult('error'); 
         setFoundData(null);
         return;
@@ -183,7 +193,8 @@ export default function LimitSorgulama() {
 
     // Sorgulama simülasyonu (Gerçek hissi vermek için kısa gecikme)
     setTimeout(() => {
-      const result = naceVerileri.find(item => item.NACE_KODU === naceCode);
+      // ⭐️ YENİ: find metodunun sonucu NaceData veya undefined olabilir, tip kontrolü yapıldı
+      const result: NaceData | undefined = naceVerileri.find(item => item.NACE_KODU === naceCode);
       
       if (result) {
         setFoundData(result);
@@ -196,7 +207,7 @@ export default function LimitSorgulama() {
   };
 
   // Para formatı
-  const formatMoney = (val) => {
+  const formatMoney = (val: number): string => { // Fonksiyon tip tanımı yapıldı
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(val);
   };
 
@@ -258,9 +269,9 @@ export default function LimitSorgulama() {
                             <div className="relative">
                                 <input 
                                   type="text" 
-                                  maxLength="6"
+                                  maxLength={6}
                                   value={naceCode}
-                                  onChange={(e) => setNaceCode(e.target.value.replace(/\D/g, ''))}
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNaceCode(e.target.value.replace(/\D/g, ''))} // event tipini tanımladık
                                   className="w-full bg-slate-900/60 border border-slate-600/50 rounded-xl px-5 py-4 text-lg text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all tracking-widest text-center font-mono"
                                   placeholder="______"
                                 />

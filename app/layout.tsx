@@ -1,7 +1,11 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-// Font tanımlamaları (TypeScript tipi kaldırıldı)
+// 1. Next.js'ten gerekli tipleri içe aktarın
+import { Metadata } from 'next'; 
+import React from "react"; // React.ReactNode için bu import gerekli
+
+// Font tanımlamaları
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -12,16 +16,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Metadata objesi (TypeScript tipi kaldırıldı)
-export const metadata = {
+// 2. Metadata objesine tip ataması yapın
+export const metadata: Metadata = {
   title: "S.S. Esnaf ve Sanatkarlar Kredi Kooperatifi",
   description: "Esnaf ve sanatkarlarımızın finansal ihtiyaçlarına yönelik çözümler sunan kredi kooperatifi resmi web sitesi.",
 };
 
-// Fonksiyon imzasındaki tip tanımlamaları kaldırıldı
+// 3. Bileşen props'u için arayüz (Interface) tanımlayın
+interface RootLayoutProps {
+  // children prop'unun tipi React.ReactNode olmalıdır (diğer bileşenleri/sayfaları temsil eder)
+  children: React.ReactNode; 
+}
+
+// 4. Bileşen fonksiyonuna tanımlanan props arayüzünü uygulayın
 export default function RootLayout({
   children,
-}) {
+}: RootLayoutProps) {
   return (
     <html lang="tr">
       <body

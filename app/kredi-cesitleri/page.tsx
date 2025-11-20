@@ -1,11 +1,26 @@
 import React from 'react';
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
-import { Briefcase, Building2, Truck, CheckCircle2, ArrowRight, Wallet } from 'lucide-react';
+// Lucide ikonlarını import ediyoruz
+import { Briefcase, Building2, Truck, CheckCircle2, ArrowRight, Wallet, LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-// Kredi Veri Seti
-const creditTypes = [
+// ⭐️ YENİ: CreditType Arayüzü
+interface CreditType {
+  id: number;
+  title: string;
+  // Lucide ikonları birer React bileşeni olduğu için tipini LucideIcon olarak belirledik
+  icon: LucideIcon; 
+  description: string;
+  features: string[];
+  // color alanını sınırlı string tipleriyle belirledik (kod güvenliği için)
+  color: "amber" | "indigo" | "cyan"; 
+  link: string;
+}
+
+
+// Kredi Veri Seti (Tip uygulaması yapıldı)
+const creditTypes: CreditType[] = [
   {
     id: 1,
     title: "İşletme Kredisi",
@@ -105,24 +120,28 @@ export default function KrediCesitleri() {
             <div className="grid lg:grid-cols-3 gap-8">
                 {creditTypes.map((credit) => {
                     // Renk temasına göre sınıfları belirle
-                    const colorClasses = {
+                    const colorClasses: string = { // Tip ataması yapıldı
                         amber: "text-amber-400 bg-amber-500/10 border-amber-500/20 group-hover:border-amber-500/40 group-hover:shadow-amber-500/10",
                         indigo: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20 group-hover:border-indigo-500/40 group-hover:shadow-indigo-500/10",
                         cyan: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 group-hover:border-cyan-500/40 group-hover:shadow-cyan-500/10",
                     }[credit.color];
 
-                    const btnColorClasses = {
+                    const btnColorClasses: string = { // Tip ataması yapıldı
                         amber: "hover:text-amber-300",
                         indigo: "hover:text-indigo-300",
                         cyan: "hover:text-cyan-300",
                     }[credit.color];
+
+                    // İkon bileşenini dinamik olarak Credit.icon olarak alıyoruz
+                    const IconComponent = credit.icon;
 
                     return (
                         <div key={credit.id} className={`group flex flex-col h-full bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-3xl p-8 transition-all duration-300 hover:bg-slate-800/60 hover:-translate-y-2 hover:shadow-2xl ${colorClasses.split(' ').pop()}`}>
                             
                             {/* İkon */}
                             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-colors ${colorClasses.split(' ').slice(1, 3).join(' ')}`}>
-                                <credit.icon size={32} className={`${colorClasses.split(' ')[0]}`} />
+                                {/* İkon, tipi LucideIcon olduğu için doğru çalışacaktır. */}
+                                <IconComponent size={32} className={`${colorClasses.split(' ')[0]}`} />
                             </div>
 
                             {/* Başlık & Açıklama */}
@@ -135,7 +154,7 @@ export default function KrediCesitleri() {
 
                             {/* Özellikler Listesi */}
                             <ul className="space-y-3 mb-8">
-                                {credit.features.map((feature, idx) => (
+                                {credit.features.map((feature, idx: number) => ( // idx'e tip atandı
                                     <li key={idx} className="flex items-start text-sm text-slate-300">
                                         <CheckCircle2 size={16} className={`mr-2 mt-0.5 shrink-0 ${colorClasses.split(' ')[0]}`} />
                                         <span>{feature}</span>

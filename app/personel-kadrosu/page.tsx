@@ -2,8 +2,19 @@ import React from 'react';
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
 
-// Personel Veri Seti
-const staffMembers = [
+// ⭐️ YENİ: Personel Üyeleri için Tip Tanımı (Interface)
+interface StaffMember {
+  id: number;
+  name: string;
+  title: string;
+  image: string;
+  type: 'gold' | 'silver';
+  // category alanını daha spesifik bir tip ile tanımladık
+  category: 'manager' | 'accounting' | 'officer' | 'service'; 
+}
+
+// Personel Veri Seti (Tip uygulaması eklendi)
+const staffMembers: StaffMember[] = [
   // 1. KOOPERATİF MÜDÜRÜ
   { 
     id: 1, 
@@ -33,13 +44,15 @@ const staffMembers = [
 
 export default function PersonelKadrosu() {
   
-  const manager = staffMembers.find(m => m.category === 'manager');
-  const accountingTeam = staffMembers.filter(m => m.category === 'accounting');
-  const officersTeam = staffMembers.filter(m => m.category === 'officer');
-  const serviceTeam = staffMembers.filter(m => m.category === 'service');
+  // Filtrelenmiş sonuçlara tip ataması yapıldı.
+  const manager: StaffMember | undefined = staffMembers.find(m => m.category === 'manager');
+  const accountingTeam: StaffMember[] = staffMembers.filter(m => m.category === 'accounting');
+  const officersTeam: StaffMember[] = staffMembers.filter(m => m.category === 'officer');
+  const serviceTeam: StaffMember[] = staffMembers.filter(m => m.category === 'service');
 
   // Gümüş Kart Bileşeni (Tekrar Eden)
-  const SilverMemberCard = ({ member }) => (
+  // ⭐️ YENİ: Props için arayüz tanımı eklendi
+  const SilverMemberCard = ({ member }: { member: StaffMember }) => (
     <div className="group flex flex-col items-center transform transition duration-300 hover:-translate-y-2">
       {/* Fotoğraf Çerçevesi (Gümüş Tema) */}
       <div className="relative w-40 h-52 p-1 rounded-lg bg-gradient-to-br from-slate-300 via-slate-400 to-slate-600 shadow-[0_0_15px_rgba(148,163,184,0.15)] group-hover:shadow-[0_0_25px_rgba(148,163,184,0.3)] transition-shadow duration-300">
@@ -66,8 +79,8 @@ export default function PersonelKadrosu() {
     </div>
   );
 
-  // Bölüm Başlığı Bileşeni
-  const SectionHeader = ({ title }) => (
+  // Bölüm Başlığı Bileşeni (Basit bir bileşen olduğu için inline tip tanımı yeterli)
+  const SectionHeader = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center mb-8 mt-4">
         <div className="h-px bg-gradient-to-r from-transparent to-slate-600 w-16 sm:w-32"></div>
         <h2 className="mx-6 text-slate-300 text-sm font-bold uppercase tracking-[0.2em] text-center">

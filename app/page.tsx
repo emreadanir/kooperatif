@@ -6,7 +6,8 @@ import Footer from '../components/Footer';
 import Link from 'next/link'; 
 import { Users, ShieldCheck, FileText, ArrowRight, CheckCircle } from 'lucide-react';
 
-export default function Home() {
+// ⭐️ YENİ: Bileşene tip ataması yapıldı
+const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">
       <Navbar />
@@ -53,7 +54,7 @@ export default function Home() {
                     Bize Ulaşın
                   </button>
                 </Link>
-                <Link href="/isletme-kredisi">
+                <Link href="/kredi-cesitleri">
                   <button className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 border border-slate-600 text-slate-200 font-bold text-lg backdrop-blur-sm transition-all flex items-center justify-center gap-2 group">
                     Kredi Detayları <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                   </button>
@@ -136,7 +137,7 @@ export default function Home() {
                     <h3 className="text-2xl font-bold text-white mb-3">Kredi Koşulları</h3>
                     <p className="text-slate-400 mb-6 text-sm leading-relaxed">İşletme, yatırım ve taşıt kredisi seçeneklerimiz ve uygun faiz oranlarımız.</p>
                     
-                    <Link href="/isletme-kredisi" className="inline-flex items-center text-indigo-400 font-semibold hover:text-indigo-300 transition-colors group-hover:gap-2">
+                    <Link href="/kredi-cesitleri" className="inline-flex items-center text-indigo-400 font-semibold hover:text-indigo-300 transition-colors group-hover:gap-2">
                       Detaylar <ArrowRight size={16} className="ml-1"/>
                     </Link>
                  </div>
@@ -162,3 +163,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default Home; // ⭐️ Eksik olan default export buraya eklendi

@@ -6,13 +6,29 @@ import Footer from '../../components/Footer';
 import Link from 'next/link'; 
 import { Calculator, RefreshCcw, Wallet, PieChart, Calendar, Info, CheckCircle, TrendingUp } from 'lucide-react';
 
-export default function KrediHesaplama() {
-  // --- State Tanımları ---
-  const [amount, setAmount] = useState(500000); // Varsayılan Tutar
-  const [term, setTerm] = useState(24); // Varsayılan Vade
-  const [frequency, setFrequency] = useState(2); // DEĞİŞTİRİLDİ: Varsayılan Ödeme Sıklığı (3 Aylık)
+// ⭐️ Hesaplama Sonuçları için Tip Tanımı
+interface CalculationResults {
+  installment: number;
+  totalRepayment: number;
+  totalInterest: number;
+  totalDeductions: number;
+  netAmount: number;
+  breakdown: { bloke: number; bolge: number; masraf: number };
+}
+
+// ⭐️ Props tanımı (Şu an props yok ama gelecekte eklenebilir)
+interface KrediHesaplamaProps {}
+
+
+// Bileşen tipi olarak React.FC (Function Component) kullanıldı
+const KrediHesaplama: React.FC<KrediHesaplamaProps> = () => {
+  // --- State Tanımları (Tipler atandı) ---
+  const [amount, setAmount] = useState<number>(500000); // Varsayılan Tutar
+  const [term, setTerm] = useState<number>(24); // Varsayılan Vade
+  const [frequency, setFrequency] = useState<number>(2); // Varsayılan Ödeme Sıklığı (3 Aylık)
   
-  const [results, setResults] = useState({
+  // Hesaplama sonuçları için CalculationResults tipini kullan
+  const [results, setResults] = useState<CalculationResults>({
     installment: 0,
     totalRepayment: 0,
     totalInterest: 0,
@@ -22,8 +38,8 @@ export default function KrediHesaplama() {
   });
 
   // Sabit Oranlar (Önceki sayfalardan alınan veriler)
-  const INTEREST_RATE_ANNUAL = 0.25; // %25 Yıllık Faiz
-  const DEDUCTION_RATES = {
+  const INTEREST_RATE_ANNUAL: number = 0.25; // %25 Yıllık Faiz
+  const DEDUCTION_RATES: { bloke: number, bolge: number, masraf: number } = {
     bloke: 0.015, // %1.5
     bolge: 0.0025, // %0.25
     masraf: 0.0125 // %1.25
@@ -32,19 +48,19 @@ export default function KrediHesaplama() {
   // --- Hesaplama Fonksiyonu (Basitleştirilmiş Anüite Yaklaşımı) ---
   useEffect(() => {
     // Kesinti Hesaplamaları
-    const bloke = amount * DEDUCTION_RATES.bloke;
-    const bolge = amount * DEDUCTION_RATES.bolge;
-    const masraf = amount * DEDUCTION_RATES.masraf;
-    const totalDeductions = bloke + bolge + masraf;
-    const netAmount = amount - totalDeductions;
+    const bloke: number = amount * DEDUCTION_RATES.bloke;
+    const bolge: number = amount * DEDUCTION_RATES.bolge;
+    const masraf: number = amount * DEDUCTION_RATES.masraf;
+    const totalDeductions: number = bloke + bolge + masraf;
+    const netAmount: number = amount - totalDeductions;
 
     // Taksit Hesaplama
-    const periodicRate = (INTEREST_RATE_ANNUAL / 12); // Aylık Faiz Oranı
-    const actualPeriodicRate = periodicRate * frequency; // Seçilen periyoda göre dönemsel faiz oranı
+    const periodicRate: number = (INTEREST_RATE_ANNUAL / 12); // Aylık Faiz Oranı
+    const actualPeriodicRate: number = periodicRate * frequency; // Seçilen periyoda göre dönemsel faiz oranı
 
-    const numberOfInstallments = Math.ceil(term / frequency); // Taksit Sayısı
+    const numberOfInstallments: number = Math.ceil(term / frequency); // Taksit Sayısı
 
-    let installment = 0;
+    let installment: number = 0;
     if (actualPeriodicRate > 0 && numberOfInstallments > 0) {
         // Anüite Formülü: A = P * [ i * (1 + i)^n ] / [ (1 + i)^n – 1 ]
         // i = Dönemsel Faiz Oranı, n = Taksit Sayısı, P = Anapara (amount)
@@ -55,8 +71,8 @@ export default function KrediHesaplama() {
     }
 
 
-    const totalRepayment = installment * numberOfInstallments;
-    const totalInterest = totalRepayment - amount;
+    const totalRepayment: number = installment * numberOfInstallments;
+    const totalInterest: number = totalRepayment - amount;
 
     setResults({
         installment: isNaN(installment) ? 0 : installment,
@@ -69,14 +85,14 @@ export default function KrediHesaplama() {
   }, [amount, term, frequency]);
 
   // Para Formatlama Yardımcısı
-  const formatMoney = (val) => {
+  const formatMoney = (val: number): string => { // Tip ataması yapıldı
     if (isNaN(val) || val === Infinity) return '0 ₺';
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(val);
   };
 
-  const getVadeText = () => {
-    const years = Math.floor(term / 12);
-    const months = term % 12;
+  const getVadeText = (): string => { // Dönüş tipi string olarak belirlendi
+    const years: number = Math.floor(term / 12);
+    const months: number = term % 12;
     if (years > 0 && months > 0) return `${years} Yıl ${months} Ay`;
     if (years > 0) return `${years} Yıl`;
     return `${months} Ay`;
@@ -295,3 +311,6 @@ export default function KrediHesaplama() {
     </div>
   );
 }
+
+// ⭐️ BU SATIR EKLENMELİYDİ (JavaScript'teki orijinal dosyanızda da vardı)
+export default KrediHesaplama;

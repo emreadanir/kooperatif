@@ -3,11 +3,27 @@ import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer'; 
 import { FileText, Download, Eye } from 'lucide-react';
 
-// --- Google Drive Link Yardımcısı ---
-const getDriveLinks = (url) => {
+// ⭐️ YENİ: Google Drive Linkleri için Tip Tanımı
+interface DriveLinks {
+  view: string;
+  download: string;
+}
+
+// ⭐️ YENİ: Dokümanlar için Tip Tanımı
+interface Document {
+  id: number;
+  title: string;
+  category: "Sözleşme" | "Kanun"; // Sınırlı tipler belirlemek kod güvenliğini artırır
+  date: string;
+  size: string;
+  fileUrl: string;
+}
+
+// --- Google Drive Link Yardımcısı (Tip atamaları yapıldı) ---
+const getDriveLinks = (url: string): DriveLinks => {
   if (!url || url === "#") return { view: "#", download: "#" };
   const idMatch = url.match(/\/d\/(.*?)\//);
-  const fileId = idMatch ? idMatch[1] : null;
+  const fileId: string | null = idMatch ? idMatch[1] : null;
 
   if (fileId) {
     return {
@@ -18,8 +34,8 @@ const getDriveLinks = (url) => {
   return { view: url, download: url };
 };
 
-// --- Doküman Listesi ---
-const documents = [
+// --- Doküman Listesi (Tip uygulaması yapıldı) ---
+const documents: Document[] = [
   {
     id: 1,
     title: "Bölge Birliği Ana Sözleşmesi",
@@ -108,7 +124,7 @@ export default function KanunVeYonetmelikler() {
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {documents.map((doc) => {
-                    const links = getDriveLinks(doc.fileUrl);
+                    const links: DriveLinks = getDriveLinks(doc.fileUrl); // Tip ataması yapıldı
                     
                     return (
                     <div key={doc.id} className="group relative bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-2xl p-6 hover:bg-slate-800/60 transition-all duration-300 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-900/10 flex flex-col sm:flex-row items-start gap-6">

@@ -2,8 +2,17 @@ import React from 'react';
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
 
-// Örnek Veri Seti - Denetim Kurulu
-const auditMembers = [
+// ⭐️ YENİ: Kurul Üyeleri için Tip Tanımı (Interface)
+interface Member {
+  id: number;
+  name: string;
+  title: string;
+  image: string;
+  type: 'silver';
+}
+
+// Örnek Veri Seti - Denetim Kurulu (Tip uygulaması eklendi)
+const auditMembers: Member[] = [
   {
     id: 1,
     name: "Mustafa YILDIZ",
