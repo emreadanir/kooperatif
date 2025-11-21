@@ -1,49 +1,123 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
-import { MapPin, Phone, Mail, Clock, Send, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, Mail, Loader2, Globe } from 'lucide-react';
 
-// ⭐️ YENİ: Bileşene tip ataması yapıldı
+// Firebase imports
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db, appId } from '@/lib/firebase';
+
+// Tip Tanımları
+interface PhoneItem {
+  number: string;
+  note: string;
+}
+
+interface EmailItem {
+  address: string;
+  note: string;
+}
+
+interface ContactData {
+  address: string;
+  city: string;
+  phones: PhoneItem[];
+  emails: EmailItem[];
+  mapEmbedUrl: string;
+  // Geriye dönük uyumluluk
+  phone?: string;
+  phoneNote?: string;
+  email?: string;
+  emailNote?: string;
+}
+
+// Varsayılan Veriler
+const defaultData: ContactData = {
+  address: "Cumhuriyet Mah. Atatürk Cad. No:123",
+  city: "Merkez / TÜRKİYE",
+  phones: [{ number: "0 (212) 123 45 67", note: "Hafta içi 08:30 - 17:30" }],
+  emails: [{ address: "bilgi@kooperatif.org.tr", note: "7/24 e-posta gönderebilirsiniz" }],
+  mapEmbedUrl: ""
+};
+
 const Iletisim: React.FC = () => {
+  const [contactData, setContactData] = useState<ContactData>(defaultData);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+
+  // 1. Anonim Giriş
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) setUser(u);
+      else signInAnonymously(auth).catch((err) => console.error("Auth Error:", err));
+    });
+    return () => unsub();
+  }, []);
+
+  // 2. Veri Çekme
+  useEffect(() => {
+    if (!user) return;
+
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'page-content', 'contact-info');
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as ContactData;
+        
+        const phones = data.phones && data.phones.length > 0 
+            ? data.phones 
+            : (data.phone ? [{ number: data.phone, note: data.phoneNote || '' }] : defaultData.phones);
+
+        const emails = data.emails && data.emails.length > 0
+            ? data.emails
+            : (data.email ? [{ address: data.email, note: data.emailNote || '' }] : defaultData.emails);
+
+        setContactData({
+            ...data,
+            phones,
+            emails
+        });
+      }
+      setLoading(false);
+    }, (err) => {
+      console.error("Data fetch error:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">
       <Navbar />
       
-      {/* Ana Kapsayıcı: Arka plan efektleri */}
+      {/* Ana Kapsayıcı */}
       <main className="flex-grow relative overflow-hidden">
         
-        {/* --- GLOBAL ARKA PLAN EFEKTLERİ (Mesh Gradient - İndigo/Cyan Tema) --- */}
+        {/* Arka Plan Efektleri */}
         <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-            {/* Üst Sağ - İndigo Işıltısı */}
             <div className="absolute top-[-10%] right-[-5%] w-[700px] h-[700px] bg-indigo-500/20 rounded-full blur-[120px] mix-blend-screen"></div>
-            
-            {/* Üst Sol - Cyan Vurgu (İletişim/Teknoloji) */}
             <div className="absolute top-[5%] left-[-10%] w-[600px] h-[600px] bg-cyan-900/20 rounded-full blur-[100px] mix-blend-screen"></div>
-            
-            {/* Orta Bölüm - Mavi Geçiş */}
             <div className="absolute top-[40%] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-blue-600/10 blur-[90px] rounded-full mix-blend-screen"></div>
-
-            {/* Alt Kısımlar - Devamlılık */}
             <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-indigo-900/15 rounded-full blur-[150px] mix-blend-screen"></div>
         </div>
 
-        {/* --- BAŞLIK BÖLÜMÜ --- */}
+        {/* Başlık Bölümü */}
         <div className="relative z-10 pt-28 pb-12 lg:pt-40 lg:pb-16 text-center">
             <div className="container mx-auto px-4">
-                
-                {/* Üst Başlık */}
                 <div className="inline-flex items-center justify-center space-x-3 mb-4 opacity-90">
                     <div className="h-px w-8 bg-gradient-to-r from-transparent to-cyan-400"></div>
-                    <span className="text-cyan-400 font-bold tracking-[0.25em] uppercase text-xs md:text-sm">7/24 DESTEK</span>
+                    <span className="text-cyan-400 font-bold tracking-[0.25em] uppercase text-xs md:text-sm">BİRDEN FAZLA İLETİŞİM YOLU</span>
                     <div className="h-px w-8 bg-gradient-to-l from-transparent to-cyan-400"></div>
                 </div>
                 
-                {/* Ana Başlık */}
                 <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight drop-shadow-2xl">
                   Bize <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">Ulaşın</span>
                 </h1>
                 
-                {/* Açıklama */}
                 <p className="text-slate-400 max-w-2xl mx-auto text-base md:text-lg font-light leading-relaxed">
                   Sorularınız, görüşleriniz veya kredi başvurularınız için bizimle dilediğiniz zaman iletişime geçebilirsiniz.
                 </p>
@@ -54,132 +128,104 @@ const Iletisim: React.FC = () => {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
             
-            <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
-                
-                {/* SOL KOLON: İLETİŞİM BİLGİLERİ */}
-                <div className="lg:col-span-1 space-y-6">
+            {loading ? (
+               <div className="flex justify-center py-20">
+                  <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+               </div>
+            ) : (
+            <>
+                {/* İÇERİK IZGARASI (YENİ DÜZEN) */}
+                <div className="grid lg:grid-cols-2 gap-8 items-start">
                     
-                    {/* Adres Kartı */}
-                    <div className="group p-6 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-2xl hover:bg-slate-800/60 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/10">
-                        <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-cyan-500/20 transition-colors">
-                            <MapPin className="w-6 h-6 text-cyan-400" />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">Merkez Ofis</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            Cumhuriyet Mah. Atatürk Cad. No:123<br/>Merkez / TÜRKİYE
-                        </p>
-                    </div>
+                    {/* SOL SÜTUN: İLETİŞİM KANALLARI & ADRES */}
+                    <div className="space-y-8">
 
-                    {/* Telefon Kartı */}
-                    <div className="group p-6 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-2xl hover:bg-slate-800/60 transition-all duration-300 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10">
-                        <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
-                            <Phone className="w-6 h-6 text-indigo-400" />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">Telefon</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            0 (212) 123 45 67
-                        </p>
-                        <p className="text-slate-500 text-xs mt-1">Hafta içi 08:30 - 17:30</p>
-                    </div>
-
-                    {/* E-posta Kartı */}
-                    <div className="group p-6 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-2xl hover:bg-slate-800/60 transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10">
-                        <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-500/20 transition-colors">
-                            <Mail className="w-6 h-6 text-purple-400" />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">E-Posta</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            bilgi@kooperatif.org.tr
-                        </p>
-                        <p className="text-slate-500 text-xs mt-1">7/24 e-posta gönderebilirsiniz</p>
-                    </div>
-
-                </div>
-
-                {/* SAĞ KOLON: İLETİŞİM FORMU */}
-                <div className="lg:col-span-2">
-                    <div className="h-full bg-slate-800/30 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 lg:p-10 relative overflow-hidden">
-                        {/* Form Arkaplan Efekti */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none"></div>
-                        
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="p-3 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                                    <MessageSquare className="w-6 h-6 text-white" />
+                        {/* 1. Adres Kartı */}
+                        <div className="group p-8 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-3xl hover:bg-slate-800/60 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/10">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-cyan-500/10 rounded-2xl flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                                    <MapPin className="w-7 h-7 text-cyan-400" />
                                 </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white">Mesaj Gönderin</h3>
-                                    <p className="text-slate-400 text-sm">Size en kısa sürede dönüş yapacağız.</p>
-                                </div>
+                                <h3 className="text-2xl font-bold text-white">Adres</h3>
                             </div>
-
-                            <form className="space-y-6">
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label htmlFor="name" className="text-sm font-medium text-slate-300 ml-1">Adınız Soyadınız</label>
-                                        <input 
-                                          type="text" 
-                                          id="name"
-                                          className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
-                                          placeholder="Adınız Soyadınız"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label htmlFor="email" className="text-sm font-medium text-slate-300 ml-1">E-Posta Adresiniz</label>
-                                        <input 
-                                          type="email" 
-                                          id="email"
-                                          className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
-                                          placeholder="ornek@email.com"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label htmlFor="subject" className="text-sm font-medium text-slate-300 ml-1">Konu</label>
-                                    <select id="subject" className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all appearance-none cursor-pointer">
-                                        <option>Genel Bilgi Talebi</option>
-                                        <option>Kredi Başvurusu Hakkında</option>
-                                        <option>Ödeme ve Borç Sorgulama</option>
-                                        <option>Şikayet ve Öneri</option>
-                                        <option>Diğer</option>
-                                    </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label htmlFor="message" className="text-sm font-medium text-slate-300 ml-1">Mesajınız</label>
-                                    <textarea 
-                                      rows={5}
-                                      id="message"
-                                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all resize-none"
-                                      placeholder="Mesajınızı buraya yazınız..."
-                                    ></textarea>
-                                </div>
-
-                                {/* Burada form submit işlemi JS ile yapılmadığı için, submit handler eklemedim. */}
-                                <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/25 transition-all transform hover:scale-[1.01] hover:shadow-indigo-500/40 flex items-center justify-center gap-2">
-                                    <Send size={20} />
-                                    Mesajı Gönder
-                                </button>
-                            </form>
+                            <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap">
+                                {contactData.address}
+                            </p>
+                            <p className="text-cyan-400 font-bold mt-2 text-lg">{contactData.city}</p>
                         </div>
-                    </div>
-                </div>
+                        
+                        {/* 2. Telefon Kartı (Çoklu) */}
+                        <div className="group p-8 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-3xl hover:bg-slate-800/60 transition-all duration-300 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors">
+                                    <Phone className="w-7 h-7 text-indigo-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white">Telefon</h3>
+                            </div>
+                            
+                            <div className="space-y-5">
+                                {contactData.phones.map((phone, idx) => (
+                                    <div key={idx} className="border-b border-slate-700/50 last:border-0 pb-4 last:pb-0">
+                                        <p className="text-white text-lg font-semibold tracking-wide">
+                                            {phone.number}
+                                        </p>
+                                        {phone.note && <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                            {phone.note}
+                                        </p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-            </div>
+                        {/* 3. E-posta Kartı (Çoklu) */}
+                        <div className="group p-8 bg-slate-800/40 backdrop-blur-sm border border-slate-700/60 rounded-3xl hover:bg-slate-800/60 transition-all duration-300 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                                    <Mail className="w-7 h-7 text-purple-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white">E-Posta</h3>
+                            </div>
+                            
+                            <div className="space-y-5">
+                                {contactData.emails.map((email, idx) => (
+                                    <div key={idx} className="border-b border-slate-700/50 last:border-0 pb-4 last:pb-0">
+                                        <p className="text-white text-lg font-semibold tracking-wide break-all">
+                                            {email.address}
+                                        </p>
+                                        {email.note && <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                            {email.note}
+                                        </p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-            {/* HARİTA BÖLÜMÜ (Opsiyonel - Görsellik için placeholder) */}
-            <div className="mt-12 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative h-[400px] bg-slate-900 group">
-                <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center group-hover:bg-slate-800/40 transition-colors">
-                    <div className="text-center">
-                        <MapPin className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-500 font-medium">Google Maps Harita Alanı</p>
-                        <p className="text-slate-600 text-sm mt-2">Buraya Google Maps Iframe kodunuzu ekleyebilirsiniz.</p>
                     </div>
+
+                    {/* SAĞ SÜTUN: HARİTA (Form Kaldırıldı) */}
+                    <div className="space-y-8">
+                        {/* Harita */}
+                        {contactData.mapEmbedUrl && (
+                            <div className="rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative h-[600px] bg-slate-900 group">
+                                <div className="absolute top-4 left-4 z-10 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2 text-xs text-slate-300">
+                                    <Globe size={14} className="text-emerald-400"/> Konumumuz
+                                </div>
+                                <iframe 
+                                    src={contactData.mapEmbedUrl} 
+                                    className="w-full h-full border-0 grayscale-[0.2] hover:grayscale-0 transition-all duration-700" 
+                                    allowFullScreen 
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                ></iframe>
+                            </div>
+                        )}
+                    </div>
+
                 </div>
-                {/* Gerçek harita eklendiğinde üstteki div kaldırılıp iframe buraya konulacak */}
-                {/* <iframe src="..." className="w-full h-full border-0" allowFullScreen="" loading="lazy"></iframe> */}
-            </div>
+            </>
+            )}
 
         </div>
       </main>

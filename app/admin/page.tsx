@@ -11,7 +11,8 @@ import {
   FileSearch, 
   Users, 
   ChevronDown,
-  Info
+  Info,
+  FileText // ⭐️ YENİ: Sayfalar ikonu eklendi
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -43,6 +44,12 @@ export default async function AdminDashboard() {
           <Link href="/admin/duyurular" className="px-4 py-3 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl flex items-center gap-3 font-medium cursor-pointer transition-colors">
             <Megaphone size={20} />
             Duyurular
+          </Link>
+
+          {/* ⭐️ YENİ: SAYFALAR MENÜSÜ */}
+          <Link href="/admin/sayfalar" className="px-4 py-3 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl flex items-center gap-3 font-medium cursor-pointer transition-colors">
+            <FileText size={20} />
+            Sayfalar
           </Link>
 
           <details className="group/kadro select-none" open>
@@ -118,7 +125,6 @@ export default async function AdminDashboard() {
                 <p className="text-slate-400">Sol menüyü kullanarak web sitesinin içeriğini yönetebilirsiniz. İşte yapabilecekleriniz:</p>
               </div>
 
-              {/* ⭐️ GÜNCELLEME: Panel Özeti yerine Bilgilendirme Kartları */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Tip 1: Duyurular */}
@@ -134,7 +140,20 @@ export default async function AdminDashboard() {
                   </p>
                 </div>
 
-                {/* Tip 2: Yönetim Kurulu */}
+                {/* Tip 2: Sayfalar (YENİ EKLENDİ) */}
+                <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800/60 transition-all duration-300 group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20 group-hover:scale-110 transition-transform">
+                      <FileText size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Sayfa Yönetimi</h3>
+                  </div>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Sitenizdeki "Hakkımızda", "İletişim" gibi temel sayfaların içeriklerini buradan düzenleyebilir ve yönetebilirsiniz.
+                  </p>
+                </div>
+
+                {/* Tip 3: Yönetim Kurulu */}
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800/60 transition-all duration-300 group">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 group-hover:scale-110 transition-transform">
@@ -147,7 +166,7 @@ export default async function AdminDashboard() {
                   </p>
                 </div>
 
-                {/* Tip 3: Diğer Kadrolar */}
+                {/* Tip 4: Diğer Kadrolar */}
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800/60 transition-all duration-300 group">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20 group-hover:scale-110 transition-transform">
@@ -157,19 +176,6 @@ export default async function AdminDashboard() {
                   </div>
                   <p className="text-slate-400 text-sm leading-relaxed">
                     Denetim kurulu üyelerini ve idari personelleri yönetebilirsiniz. Personelleri "Muhasebe", "Memur" gibi kategorilere ayırarak düzenli bir görünüm sağlayabilirsiniz.
-                  </p>
-                </div>
-
-                {/* Tip 4: Genel Bilgi */}
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 hover:bg-slate-800/60 transition-all duration-300 group">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 group-hover:scale-110 transition-transform">
-                      <Info size={24} />
-                    </div>
-                    <h3 className="text-lg font-bold text-white">Genel İşleyiş</h3>
-                  </div>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Yaptığınız tüm değişiklikler anında web sitesine yansır. İçeriklerin sırasını değiştirmek için listelerdeki tutamaçları (grip icon) kullanabilirsiniz.
                   </p>
                 </div>
 
