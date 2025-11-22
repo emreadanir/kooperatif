@@ -1,514 +1,620 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+// Import yolları düzeltildi
 import Navbar from '../../components/Navbar'; 
 import Footer from '../../components/Footer'; 
-import Link from 'next/link'; 
-import { Calculator, RefreshCcw, Wallet, PieChart, Calendar, Info, CheckCircle, TrendingUp, Briefcase, Building2, Truck } from 'lucide-react';
+import { Calculator, RefreshCcw, Wallet, PieChart, TrendingUp, Info, Table2, Briefcase, Building2, Truck, ChevronDown, ChevronUp, Share2, Printer } from 'lucide-react';
 
-// ⭐️ Hesaplama Sonuçları için Tip Tanımı
-interface CalculationResults {
-  installment: number;
-  totalRepayment: number;
-  totalInterest: number;
-  totalDeductions: number;
-  netAmount: number;
-  breakdown: { bloke: number; bolge: number; masraf: number };
+// --- TİP TANIMLARI ---
+
+type CreditType = 'business' | 'building' | 'vehicle';
+
+interface DeductionRates {
+  blokeSermaye: number;
+  riskSermayesi: number;
+  bolgeBirligi: number;
+  teskomb: number;
+  pesinMasraf: number;
 }
 
-// ⭐️ Kredi Türü Tipleri (Genişletildi)
-type CreditType = 'business' | 'building' | 'vehicle'; 
+interface InstallmentRow {
+  installmentNumber: number;
+  dueDate: string;
+  days: number;
+  principal: number;
+  interest: number;
+  expense: number;
+  commission: number;
+  total: number;
+  remainingPrincipal: number;
+}
 
-// ⭐️ Props tanımı (Şu an props yok ama gelecekte eklenebilir)
-interface KrediHesaplamaProps {}
+interface CalculationResults {
+  paymentSchedule: InstallmentRow[];
+  totals: {
+    principal: number;
+    interest: number;
+    commission: number;
+    expense: number;
+    totalPayment: number;
+  };
+  deductions: {
+    blokeSermaye: number;
+    riskSermayesi: number;
+    bolgeBirligi: number;
+    teskomb: number;
+    pesinMasraf: number;
+    totalDeductions: number;
+  };
+  netAmount: number;
+}
 
-// Sabit Faiz Oranı Tanımı
-const INTEREST_RATE_ANNUAL: number = 0.25; // %25 Yıllık Faiz (Tüm kredi tipleri için sabit)
-const INTEREST_RATE_DISPLAY: string = (INTEREST_RATE_ANNUAL * 100).toFixed(2); // Görüntülemek için
+// --- SABİTLER ---
 
-// Kredi Tutarı Limitleri Tanımı
-const MIN_AMOUNT = 0; 
-const BUSINESS_MAX_AMOUNT = 1000000; // İşletme Kredisi Maksimum Tutar
-const BUILDING_MAX_AMOUNT = 2500000; // İşyeri Edindirme Maksimum Tutar (2.5 Milyon)
-const VEHICLE_MAX_AMOUNT = 2500000; // Taşıt Edindirme Maksimum Tutar (2.5 Milyon)
-
-// Vade Limitleri Tanımı
-const MIN_TERM = 12; // Minimum vade 12 ay
-const BUSINESS_MAX_TERM = 48; // İşletme Kredisi Maksimum Vade (4 Yıl)
-const BUILDING_MAX_TERM = 60; // İşyeri Edindirme Maksimum Vade (5 Yıl)
-const VEHICLE_MAX_TERM = 48; // Taşıt Edindirme Maksimum Vade 48 Ay oldu (4 Yıl)
-const YEARLY_STEP = 12; // Yıllık Adım (Yeni kuralın anahtarı)
-
-// Sabit Kesinti Oranları
-const DEDUCTION_RATES: { bloke: number, bolge: number, masraf: number } = {
-  bloke: 0.015, // %1.5
-  bolge: 0.0025, // %0.25
-  masraf: 0.0125 // %1.25
+const CONFIG = {
+    daysInYearForInterest: 360
 };
 
-// Bileşen tipi olarak React.FC (Function Component) kullanıldı
-const KrediHesaplama: React.FC<KrediHesaplamaProps> = () => {
-  // --- State Tanımları (Tipler atandı) ---
+// Kesinti Oranları (Yüzde)
+const DEFAULT_RATES: DeductionRates = {
+    pesinMasraf: 1.50,   
+    blokeSermaye: 2.00,  
+    riskSermayesi: 1.00, 
+    teskomb: 0.25,       
+    bolgeBirligi: 0.25   
+};
+
+const INTEREST_RATE_ANNUAL = 25.00; // %25 Yıllık Faiz
+
+// Limitler
+const BUSINESS_MAX_AMOUNT = 1000000;
+const BUILDING_MAX_AMOUNT = 2500000;
+const VEHICLE_MAX_AMOUNT = 2500000;
+
+const MIN_TERM = 12;
+const BUSINESS_MAX_TERM = 48;
+const BUILDING_MAX_TERM = 60;
+const VEHICLE_MAX_TERM = 48;
+const YEARLY_STEP = 12;
+
+// --- HESAPLAMA MOTORU ---
+
+function calculatePaymentPlan(
+    loanAmount: number,
+    loanDateStr: string,
+    period: number,
+    installments: number,
+    annualInterestRate: number,
+    rates: DeductionRates
+): CalculationResults {
+    
+    const loanDate = new Date(loanDateStr);
+    const paymentSchedule: InstallmentRow[] = [];
+    
+    const installmentsPerYear = 12 / period;
+    const basePrincipalInstallment = Math.floor((loanAmount / installments) * 100) / 100;
+    
+    let remainingPrincipal = loanAmount;
+    let previousDueDate = new Date(loanDate);
+    
+    let totalPrincipal = 0;
+    let totalInterest = 0;
+    let totalCommission = 0;
+    let totalExpense = 0;
+
+    const loanDay = loanDate.getDate();
+    const lastDayOfLoanMonth = new Date(loanDate.getFullYear(), loanDate.getMonth() + 1, 0).getDate();
+    const isEndOfMonthLoan = (loanDay === lastDayOfLoanMonth);
+
+    for (let i = 1; i <= installments; i++) {
+        const currentYearOfLoan = Math.floor((i - 1) / installmentsPerYear) + 1;
+        const installmentWithinYear = ((i - 1) % installmentsPerYear) + 1;
+
+        let dueDate = new Date(loanDate);
+        if (isEndOfMonthLoan) {
+             dueDate = new Date(loanDate.getFullYear(), loanDate.getMonth() + (i * period) + 1, 0);
+        } else {
+             dueDate = new Date(loanDate.getFullYear(), loanDate.getMonth() + (i * period), loanDay);
+        }
+
+        const diffTime = Math.abs(dueDate.getTime() - previousDueDate.getTime());
+        let days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        if (i === 1) days += 1;
+
+        const interest_full = remainingPrincipal * (annualInterestRate / 100 / CONFIG.daysInYearForInterest) * days;
+
+        const totalYears = Math.ceil(installments * period / 12);
+        let yearlyCommission = 0;
+
+        const baseCommissionRate = 0.01; 
+        if (totalYears <= 1) {
+            if (currentYearOfLoan === 1) yearlyCommission = loanAmount * baseCommissionRate;
+        } else if (totalYears === 2) {
+            if (currentYearOfLoan === 1) yearlyCommission = loanAmount * baseCommissionRate;
+            else if (currentYearOfLoan === 2) yearlyCommission = loanAmount * 0.005;
+        } else if (totalYears === 3) {
+            const baseComm = loanAmount * baseCommissionRate;
+            if (currentYearOfLoan === 1) yearlyCommission = baseComm;
+            else if (currentYearOfLoan === 2) yearlyCommission = baseComm * (2/3);
+            else if (currentYearOfLoan === 3) yearlyCommission = baseComm * (1/3);
+        } else if (totalYears === 4) {
+            if (currentYearOfLoan === 1) yearlyCommission = loanAmount * baseCommissionRate;
+            else if (currentYearOfLoan === 2) yearlyCommission = loanAmount * 0.0075;
+            else if (currentYearOfLoan === 3) yearlyCommission = loanAmount * 0.005;
+            else if (currentYearOfLoan === 4) yearlyCommission = loanAmount * 0.0025;
+        } else if (totalYears >= 5) {
+            const baseComm = loanAmount * baseCommissionRate;
+            if (currentYearOfLoan === 1) yearlyCommission = baseComm;
+            else if (currentYearOfLoan === 2) yearlyCommission = baseComm * 0.8;
+            else if (currentYearOfLoan === 3) yearlyCommission = baseComm * 0.6;
+            else if (currentYearOfLoan === 4) yearlyCommission = baseComm * 0.4;
+            else if (currentYearOfLoan >= 5) yearlyCommission = baseComm * 0.2;
+        }
+
+        let yearlyExpense = 0;
+        if (currentYearOfLoan > 1) {
+            if (totalYears === 5) {
+                if (currentYearOfLoan === 2) yearlyExpense = loanAmount * 0.012;
+                else if (currentYearOfLoan === 3) yearlyExpense = loanAmount * 0.009;
+                else if (currentYearOfLoan === 4) yearlyExpense = loanAmount * 0.006;
+                else if (currentYearOfLoan === 5) yearlyExpense = loanAmount * 0.003;
+            } else {
+                if (totalYears === 2 && currentYearOfLoan === 2) yearlyExpense = loanAmount * 0.0075;
+                else if (totalYears === 3) {
+                    if (currentYearOfLoan === 2) yearlyExpense = loanAmount * 0.01;
+                    else if (currentYearOfLoan === 3) yearlyExpense = loanAmount * 0.005;
+                } else if (totalYears === 4) {
+                    if (currentYearOfLoan === 2) yearlyExpense = loanAmount * 0.01125;
+                    else if (currentYearOfLoan === 3) yearlyExpense = loanAmount * 0.0075;
+                    else if (currentYearOfLoan === 4) yearlyExpense = loanAmount * 0.00375;
+                }
+            }
+        }
+
+        let expense_full = 0;
+        if (yearlyExpense > 0) {
+            const baseExpenseInstallment = Math.floor((yearlyExpense / installmentsPerYear) * 100) / 100;
+            expense_full = (installmentWithinYear < installmentsPerYear) 
+                ? baseExpenseInstallment 
+                : yearlyExpense - (baseExpenseInstallment * (installmentsPerYear - 1));
+        }
+
+        const baseCommissionInstallment = Math.floor((yearlyCommission / installmentsPerYear) * 100) / 100;
+        let commission_full = (installmentWithinYear < installmentsPerYear || yearlyCommission === 0) 
+            ? baseCommissionInstallment 
+            : yearlyCommission - (baseCommissionInstallment * (installmentsPerYear - 1));
+
+        let principal_full = (i < installments) 
+            ? basePrincipalInstallment 
+            : parseFloat((loanAmount - (basePrincipalInstallment * (installments - 1))).toFixed(2));
+
+        const principal = principal_full;
+        const interest = parseFloat(interest_full.toFixed(2));
+        const commission = parseFloat(commission_full.toFixed(2));
+        const expense = parseFloat(expense_full.toFixed(2));
+        const total = principal + interest + commission + expense;
+
+        const currentRemaining = remainingPrincipal - principal;
+
+        paymentSchedule.push({
+            installmentNumber: i,
+            dueDate: dueDate.toLocaleDateString('tr-TR'),
+            days,
+            principal,
+            interest,
+            expense,
+            commission,
+            total,
+            remainingPrincipal: currentRemaining > 0 ? currentRemaining : 0
+        });
+
+        previousDueDate = dueDate;
+        remainingPrincipal -= principal;
+
+        totalPrincipal += principal;
+        totalInterest += interest;
+        totalCommission += commission;
+        totalExpense += expense;
+    }
+
+    const blokeSermaye = loanAmount * (rates.blokeSermaye / 100);
+    const riskSermayesi = loanAmount * (rates.riskSermayesi / 100);
+    const bolgeBirligi = loanAmount * (rates.bolgeBirligi / 100);
+    const teskomb = loanAmount * (rates.teskomb / 100);
+    const pesinMasraf = loanAmount * (rates.pesinMasraf / 100);
+    
+    const totalDeductions = blokeSermaye + riskSermayesi + bolgeBirligi + teskomb + pesinMasraf;
+
+    return {
+        paymentSchedule,
+        totals: {
+            principal: totalPrincipal,
+            interest: totalInterest,
+            commission: totalCommission,
+            expense: totalExpense,
+            totalPayment: totalPrincipal + totalInterest + totalCommission + totalExpense
+        },
+        deductions: {
+            blokeSermaye,
+            riskSermayesi,
+            bolgeBirligi,
+            teskomb,
+            pesinMasraf,
+            totalDeductions
+        },
+        netAmount: loanAmount - totalDeductions
+    };
+}
+
+const KrediHesaplama: React.FC = () => {
   const [amount, setAmount] = useState<number>(500000); 
   const [term, setTerm] = useState<number>(24); 
-  const [frequency, setFrequency] = useState<number>(1); // Varsayılan Ödeme Sıklığı 1 (Aylık)
-  const [creditType, setCreditType] = useState<CreditType>('business'); // Varsayılan İşletme Kredisi
+  const [frequency, setFrequency] = useState<number>(1);
+  const [creditType, setCreditType] = useState<CreditType>('business'); 
+  const [loanDate, setLoanDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
-  // Hesaplama sonuçları için CalculationResults tipini kullan
-  const [results, setResults] = useState<CalculationResults>({
-    installment: 0,
-    totalRepayment: 0,
-    totalInterest: 0,
-    totalDeductions: 0,
-    netAmount: 0,
-    breakdown: { bloke: 0, bolge: 0, masraf: 0 }
-  });
+  const [results, setResults] = useState<CalculationResults | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
 
-  // Dinamik Maksimum Tutar Hesaplama
-  const maxAmount: number = ((): number => {
-    switch (creditType) {
-        case 'business':
-            return BUSINESS_MAX_AMOUNT;
-        case 'building':
-            return BUILDING_MAX_AMOUNT;
-        case 'vehicle':
-            return VEHICLE_MAX_AMOUNT;
-        default:
-            return BUSINESS_MAX_AMOUNT;
-    }
-  })();
-  const rangeStep: number = creditType === 'business' ? 5000 : 25000; 
+  const maxAmount = creditType === 'business' ? BUSINESS_MAX_AMOUNT : BUILDING_MAX_AMOUNT;
+  const maxTerm = creditType === 'business' ? BUSINESS_MAX_TERM : creditType === 'vehicle' ? VEHICLE_MAX_TERM : BUILDING_MAX_TERM;
+  const rangeStep = creditType === 'business' ? 5000 : 25000; 
 
-  // Dinamik Maksimum Vade Hesaplama
-  const maxTerm: number = ((): number => {
-    switch (creditType) {
-        case 'business':
-            return BUSINESS_MAX_TERM; // 48 Ay
-        case 'building':
-            return BUILDING_MAX_TERM; // 60 Ay
-        case 'vehicle':
-            return VEHICLE_MAX_TERM; // 48 Ay
-        default:
-            return BUSINESS_MAX_TERM;
-    }
-  })();
-
-  // ⭐️ Vade ve Limit Kısıtlama Mantığı (UI'dan gelen değerleri temizlemek ve limitleri uygulamak için)
   useEffect(() => {
-    // 1. Kredi Tutarı Limiti Kontrolü
-    if (amount > maxAmount) {
-      setAmount(maxAmount);
-    } 
+    let validAmount = amount;
+    if (validAmount > maxAmount) validAmount = maxAmount;
     
-    // 2. Vade Limiti Kontrolü ve Yıllık Katlara Yuvarlama
+    let validTerm = term;
+    if (validTerm < MIN_TERM) validTerm = MIN_TERM;
+    if (validTerm > maxTerm) validTerm = maxTerm;
     
-    // A) Vade Sınırlarını Kontrol Et ve Düzelt
-    let newTerm = term;
-    if (newTerm < MIN_TERM) {
-        newTerm = MIN_TERM;
-    } else if (newTerm > maxTerm) {
-        newTerm = maxTerm;
-    }
-    
-    // B) Yıllık Katlara (12 Ay) Yuvarlama Mantığı (Step 12 olduğu için UI'da ara değerler seçilemez, bu sadece klavye girişi veya kredi türü değişimi için önemlidir)
-    const roundedTerm = Math.round(newTerm / YEARLY_STEP) * YEARLY_STEP;
-    
-    let finalTerm = roundedTerm;
-    
-    // Yuvarlanmış değerin MIN ve MAX arasında olduğundan emin ol
-    finalTerm = Math.max(MIN_TERM, Math.min(maxTerm, finalTerm));
-    
-    // C) Son Kontrol: Eğer yuvarlama, mevcut 'term' değerini değiştirdiyse, state'i güncelle.
-    if (finalTerm !== term) {
-        setTerm(finalTerm);
-    }
-    
-  }, [creditType, maxAmount, amount, term, maxTerm]); 
+    const roundedTerm = Math.round(validTerm / YEARLY_STEP) * YEARLY_STEP;
+    const finalTerm = Math.max(MIN_TERM, Math.min(maxTerm, roundedTerm));
 
+    if (amount !== validAmount) setAmount(validAmount);
+    if (term !== finalTerm) setTerm(finalTerm);
 
-  // --- Klavye Girişini Yönetme Fonksiyonu ---
-  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    // Sadece sayıları al, binlik ayraçları kaldır
-    const rawValue = e.target.value.replace(/[^0-9]/g, '');
-    
-    // Geçici olarak değeri numericValue'ye ata
-    let numericValue = rawValue === '' ? 0 : Number(rawValue); // Boşsa 0 olarak ayarla
+    const res = calculatePaymentPlan(
+        validAmount,
+        loanDate,
+        frequency,
+        finalTerm / frequency,
+        INTEREST_RATE_ANNUAL,
+        DEFAULT_RATES
+    );
+    setResults(res);
 
-    // Limit kontrolü
-    if (numericValue < MIN_AMOUNT) {
-      numericValue = MIN_AMOUNT;
-    } else if (numericValue > maxAmount) {
-      numericValue = maxAmount;
-    }
-    
-    // State'i güncelle
-    setAmount(numericValue);
+  }, [amount, term, frequency, creditType, loanDate, maxAmount, maxTerm]); 
 
-  }, [maxAmount]);
-  
-
-  // --- Hesaplama Fonksiyonu (Basitleştirilmiş Anüite Yaklaşımı) ---
-  useEffect(() => {
-    // Kesinti Hesaplamaları
-    const bloke: number = amount * DEDUCTION_RATES.bloke;
-    const bolge: number = amount * DEDUCTION_RATES.bolge;
-    const masraf: number = amount * DEDUCTION_RATES.masraf;
-    const totalDeductions: number = bloke + bolge + masraf;
-    const netAmount: number = amount - totalDeductions;
-
-    // Taksit Hesaplama
-    const periodicRate: number = (INTEREST_RATE_ANNUAL / 12); // Aylık Faiz Oranı
-    const actualPeriodicRate: number = periodicRate * frequency; // Seçilen periyoda göre dönemsel faiz oranı
-
-    const numberOfInstallments: number = Math.ceil(term / frequency); // Taksit Sayısı
-
-    let installment: number = 0;
-    if (actualPeriodicRate > 0 && numberOfInstallments > 0) {
-        // Anüite Formülü: A = P * [ i * (1 + i)^n ] / [ (1 + i)^n – 1 ]
-        // i = Dönemsel Faiz Oranı, n = Taksit Sayısı, P = Anapara (amount)
-        installment = amount * (actualPeriodicRate * Math.pow(1 + actualPeriodicRate, numberOfInstallments)) / (Math.pow(1 + actualPeriodicRate, numberOfInstallments) - 1);
-    } else if (numberOfInstallments > 0) {
-        // Sıfır faiz durumu (veya hata durumunda)
-        installment = amount / numberOfInstallments;
-    }
-
-
-    const totalRepayment: number = installment * numberOfInstallments;
-    const totalInterest: number = totalRepayment - amount;
-
-    setResults({
-        installment: isNaN(installment) ? 0 : installment,
-        totalRepayment: isNaN(totalRepayment) ? 0 : totalRepayment,
-        totalInterest: isNaN(totalInterest) ? 0 : totalInterest,
-        totalDeductions: isNaN(totalDeductions) ? 0 : totalDeductions,
-        netAmount: isNaN(netAmount) ? 0 : netAmount,
-        breakdown: { bloke, bolge, masraf }
-    });
-  }, [amount, term, frequency]); 
-
-  // Para Formatlama Yardımcısı
-  const formatMoney = (val: number): string => { // Tip ataması yapıldı
+  const formatMoney = (val: number) => {
     if (isNaN(val) || val === Infinity) return '0 ₺';
-    // Virgül (,) yerine nokta (.) kullanmıyorum.
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(val);
-  };
-  
-  // Girdi kutusu için sadece rakamları formatlayan yardımcı fonksiyon
-  const formatNumberInput = (val: number): string => {
-    // Rakamları gruplayıp (binlik ayraç), '₺' sembolü olmadan döndürür
-    // Eğer değer 0 ise, boş bir string döndürmek, kullanıcının sıfırdan giriş yapmaya başlamasını kolaylaştırır.
-    if (val === 0) return '';
-    return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(val);
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(val);
   };
 
-
-  // ⭐️ YENİ: Vade kaydırıcısının üzerindeki taksit sayısını gösterir (Periyot Sayısı)
-  const getDisplayTerm = (): number => {
-      // term (ay) / frequency (periyot) = periyot sayısı (taksit)
-      return Math.ceil(term / frequency);
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = Number(e.target.value.replace(/[^0-9]/g, ''));
+    setAmount(rawValue > maxAmount ? maxAmount : rawValue);
   };
+
+  const getVadeText = () => { 
+    const years = Math.floor(term / 12);
+    return `${years} Yıl (${term} Ay)`;
+  };
+
+  // --- BUTON İŞLEVLERİ ---
   
-  // Taksit sayısını/vade yılını gösteren metin (Örn: 2 Yıl)
-  const getVadeText = (): string => { 
-    const years: number = Math.floor(term / 12);
+  const handlePrint = () => {
+    if (!results) return;
     
-    if (years > 0) {
-      // Vade hep yıllık katlar olduğu için, tam yıl gösterimi yeterli olacaktır.
-      return `${years} Yıl`;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Lütfen pop-up engelleyicisini devre dışı bırakın.');
+      return;
     }
-    // Normalde buraya düşülmez (MIN_TERM = 12 olduğu için), ama yedek olarak duruyor.
-    return `${term} Taksit`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Ödeme Planı</title>
+          <style>
+            body { font-family: Arial, Helvetica, sans-serif; padding: 20px; }
+            h2 { text-align: center; color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+            th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .summary { margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; }
+            .summary div { margin-bottom: 5px; font-size: 14px; }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h2>Kredi Ödeme Planı</h2>
+          <div class="summary">
+            <div><strong>Kredi Tutarı:</strong> ${formatMoney(amount)}</div>
+            <div><strong>Vade:</strong> ${getVadeText()}</div>
+            <div><strong>Toplam Geri Ödeme:</strong> ${formatMoney(results.totals.totalPayment)}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Taksit</th>
+                <th>Tarih</th>
+                <th>Gün</th>
+                <th>Anapara</th>
+                <th>Faiz</th>
+                <th>Komisyon</th>
+                <th>Masraf</th>
+                <th>Toplam</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${results.paymentSchedule.map(row => `
+                <tr>
+                  <td style="text-align: center;">${row.installmentNumber}</td>
+                  <td style="text-align: center;">${row.dueDate}</td>
+                  <td style="text-align: center;">${row.days}</td>
+                  <td>${formatMoney(row.principal)}</td>
+                  <td>${formatMoney(row.interest)}</td>
+                  <td>${formatMoney(row.commission)}</td>
+                  <td>${formatMoney(row.expense)}</td>
+                  <td style="font-weight: bold;">${formatMoney(row.total)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background-color: #e9ecef;">
+                <td colspan="3" style="text-align: center;">GENEL TOPLAM</td>
+                <td>${formatMoney(results.totals.principal)}</td>
+                <td>${formatMoney(results.totals.interest)}</td>
+                <td>${formatMoney(results.totals.commission)}</td>
+                <td>${formatMoney(results.totals.expense)}</td>
+                <td>${formatMoney(results.totals.totalPayment)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
-  // Bilgi metninde kullanılacak maksimum vade tanımı
-  const getMaxVadeText = (): string => {
-    if (creditType === 'building') {
-        return `İşyeri Edindirme Kredisi için ${BUILDING_MAX_TERM} Taksit (5 yıl)`;
+  const handleShare = async () => {
+    const shareData = {
+        title: 'Kredi Hesaplama Sonuçları',
+        text: `Kredi Tutarı: ${formatMoney(amount)}\nVade: ${getVadeText()}\nToplam Geri Ödeme: ${results ? formatMoney(results.totals.totalPayment) : ''}`,
+        url: window.location.href
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+        } catch (err) {
+            console.log('Paylaşım iptal edildi');
+        }
+    } else {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            alert('Sayfa bağlantısı panoya kopyalandı.');
+        } catch (err) {
+            alert('Paylaşım desteklenmiyor.');
+        }
     }
-    // İşletme ve Taşıt için ortak metin
-    return `İşletme ve Taşıt Edindirme Kredileri için ${BUSINESS_MAX_TERM} Taksit (4 yıl)`;
   };
-  
 
   return (
     <div className="min-h-screen bg-[#0f172a] font-sans text-gray-100 flex flex-col">
       <Navbar />
       
-      {/* Ana Kapsayıcı */}
       <main className="flex-grow relative overflow-hidden">
-        
-        {/* --- GLOBAL ARKA PLAN EFEKTLERİ --- */}
         <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
             <div className="absolute top-[-10%] right-[-5%] w-[700px] h-[700px] bg-emerald-500/10 rounded-full blur-[120px] mix-blend-screen"></div>
-            <div className="absolute top-[5%] left-[-10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[100px] mix-blend-screen"></div>
-            <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-emerald-900/15 rounded-full blur-[150px] mix-blend-screen"></div>
+            <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] bg-blue-900/15 rounded-full blur-[150px] mix-blend-screen"></div>
         </div>
 
-        {/* --- BAŞLIK BÖLÜMÜ --- */}
         <div className="relative z-10 pt-28 pb-12 lg:pt-40 lg:pb-16 text-center">
             <div className="container mx-auto px-4">
                 <div className="inline-flex items-center justify-center space-x-3 mb-4 opacity-90">
                     <div className="h-px w-8 bg-gradient-to-r from-transparent to-emerald-400"></div>
-                    <span className="text-emerald-400 font-bold tracking-[0.25em] uppercase text-xs md:text-sm">HESAPLAMA ARACI</span>
+                    <span className="text-emerald-400 font-bold tracking-[0.25em] uppercase text-xs md:text-sm">ESNAF KEFALET</span>
                     <div className="h-px w-8 bg-gradient-to-l from-transparent to-emerald-400"></div>
                 </div>
-                
-                <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight drop-shadow-2xl">
+                <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 drop-shadow-2xl">
                   Kredi <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-200 to-blue-500">Hesaplama</span>
                 </h1>
-                
-                <p className="text-slate-400 max-w-2xl mx-auto text-base md:text-lg font-light leading-relaxed">
-                  İhtiyacınız olan tutarı ve vadeyi belirleyin, tahmini geri ödeme planınızı anında oluşturun.
+                <p className="text-slate-400 max-w-2xl mx-auto text-base md:text-lg font-light">
+                  Esnaf Kefalet sistemi mevzuatına uygun, kesintiler ve değişken taksitlerin dahil olduğu detaylı hesaplama aracı.
                 </p>
-                
-                <div className="mt-12 w-full max-w-xs mx-auto h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"></div>
             </div>
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-            
             <div className="grid lg:grid-cols-12 gap-8">
                 
-                {/* --- SOL KOLON: HESAPLAMA FORMU (5 Birim) --- */}
                 <div className="lg:col-span-5 space-y-6">
                     <div className="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-                        {/* Dekoratif Işık */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-emerald-500"></div>
 
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                             <Calculator className="w-5 h-5 text-emerald-400" />
-                            Kredi Parametreleri
+                            Kredi Ayarları
                         </h3>
                         
-                        {/* 0. Kredi Türü Seçimi (3'lü Grid) */}
-                        <div className="mb-8">
-                            <label className="text-sm font-medium text-slate-300 mb-3 block">Kredi Türü ({INTEREST_RATE_DISPLAY} % Yıllık Faiz Sabit)</label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {/* İşletme Kredisi */}
-                                <button
-                                    onClick={() => setCreditType('business')}
-                                    className={`py-3 px-1 rounded-xl text-xs sm:text-sm font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                                        creditType === 'business' 
-                                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-900/20' 
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
-                                    }`}
-                                >
-                                    <Briefcase size={16} /> İşletme
-                                </button>
-                                {/* İşyeri Edindirme Kredisi */}
-                                <button
-                                    onClick={() => setCreditType('building')}
-                                    className={`py-3 px-1 rounded-xl text-xs sm:text-sm font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                                        creditType === 'building' 
-                                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/20' 
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
-                                    }`}
-                                >
-                                    <Building2 size={16} /> İşyeri
-                                </button>
-                                {/* Taşıt Edindirme Kredisi */}
-                                <button
-                                    onClick={() => setCreditType('vehicle')}
-                                    className={`py-3 px-1 rounded-xl text-xs sm:text-sm font-bold transition-all border flex flex-col items-center justify-center gap-1.5 ${
-                                        creditType === 'vehicle' 
-                                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-900/20' 
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
-                                    }`}
-                                >
-                                    <Truck size={16} /> Taşıt
-                                </button>
+                        <div className="mb-6">
+                            <label className="text-sm font-medium text-slate-300 mb-3 block">Kredi Türü</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button onClick={() => setCreditType('business')} className={`py-3 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 ${creditType === 'business' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><Briefcase size={16} /> İşletme</button>
+                                <button onClick={() => setCreditType('building')} className={`py-3 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 ${creditType === 'building' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><Building2 size={16} /> İşyeri</button>
+                                <button onClick={() => setCreditType('vehicle')} className={`py-3 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 ${creditType === 'vehicle' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><Truck size={16} /> Taşıt</button>
                             </div>
                         </div>
 
-
-                        {/* 1. Kredi Tutarı */}
-                        <div className="mb-8">
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-sm font-medium text-slate-300">Kredi Tutarı</label>
-                                {/* Klavye ile giriş yapılan alanın düzeltilmiş yapısı */}
-                                <div className="relative w-40">
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        value={formatNumberInput(amount)}
-                                        onChange={handleAmountChange}
-                                        onBlur={(e) => {
-                                            // onBlur'da boş ise 0'a çekilir.
-                                            const rawValue = Number(e.target.value.replace(/[^0-9]/g, ''));
-                                            if (rawValue === 0) {
-                                                setAmount(0);
-                                            }
-                                        }}
-                                        // Giriş alanının padding'ini ve font stilini ayarlayarak sembol için yer açtık
-                                        className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg px-2 pr-7 py-1.5 text-sm font-bold text-emerald-400 text-right focus:outline-none focus:border-emerald-500/50"
-                                    />
-                                    {/* Sembolü giriş alanının içine, metinle çakışmayacak şekilde konumlandırdık */}
-                                    <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none text-sm">₺</span>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 mb-2 block">Kredi Tutarı</label>
+                                <div className="relative">
+                                    <input type="text" value={new Intl.NumberFormat('tr-TR').format(amount)} onChange={handleAmountChange} className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-emerald-400 text-right focus:outline-none focus:border-emerald-500" />
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">₺</span>
                                 </div>
                             </div>
-                            
-                            {/* Range input'u */}
-                            <input 
-                                type="range" 
-                                min={MIN_AMOUNT} // Artık 0
-                                max={maxAmount} // Dinamik maksimum tutar
-                                step={rangeStep} // Dinamik adım
-                                value={amount} 
-                                onChange={(e) => setAmount(Number(e.target.value))}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400"
-                            />
-                            <div className="flex justify-between mt-2 text-xs text-slate-500">
-                                <span>{formatMoney(MIN_AMOUNT)}</span> {/* Görüntüleme 0 ₺ oldu */}
-                                <span className="text-emerald-300 font-medium">{formatMoney(maxAmount)}</span> {/* Dinamik maksimum limit gösterimi */}
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 mb-2 block">Kullanım Tarihi</label>
+                                <input type="date" value={loanDate} onChange={(e) => setLoanDate(e.target.value)} className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-blue-500" />
                             </div>
                         </div>
+                        
+                        <input type="range" min={0} max={maxAmount} step={rangeStep} value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 mb-6" />
 
-                        {/* 2. Vade */}
-                        <div className="mb-8">
-                            <div className="flex justify-between mb-2">
-                                <label className="text-sm font-medium text-slate-300">Vade (Taksit)</label>
-                                <span className="text-sm font-bold text-blue-400">{getDisplayTerm()} Taksit</span> {/* ⭐️ GÜNCEL: Dinamik Taksit Sayısı */}
-                            </div>
-                            <input 
-                                type="range" 
-                                min={MIN_TERM} // Minimum 12 ay
-                                max={maxTerm} // Dinamik maksimum vade
-                                step={YEARLY_STEP} // Adımı doğrudan 12'ye ayarladık.
-                                value={term} 
-                                onChange={(e) => { 
-                                    // Step 12 olduğu için aradaki değerler seçilemeyecek.
-                                    setTerm(Number(e.target.value)); 
-                                }}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400"
-                            />
-                            <div className="flex justify-between mt-2 text-xs text-slate-500">
-                                <span>{Math.ceil(MIN_TERM / frequency)} Taksit</span> {/* ⭐️ GÜNCEL: Minimum Taksit Periyodu */}
-                                <span className="text-blue-300 font-medium">{Math.ceil(maxTerm / frequency)} Taksit</span> {/* ⭐️ GÜNCEL: Maksimum Taksit Periyodu */}
-                            </div>
-                        </div>
-
-                        {/* 3. Ödeme Sıklığı */}
                         <div className="mb-6">
+                            <div className="flex justify-between mb-2">
+                                <label className="text-sm font-medium text-slate-300">Vade</label>
+                                <span className="text-sm font-bold text-blue-400">{getVadeText()}</span>
+                            </div>
+                            <input type="range" min={MIN_TERM} max={maxTerm} step={YEARLY_STEP} value={term} onChange={(e) => setTerm(Number(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                        </div>
+
+                        <div className="mb-2">
                             <label className="text-sm font-medium text-slate-300 mb-3 block">Ödeme Sıklığı</label>
                             <div className="grid grid-cols-3 gap-3">
-                                {/* Varsayılanı 1 olarak ayarladık */}
                                 {[1, 3, 6].map((val) => (
-                                    <button
-                                        key={val}
-                                        onClick={() => setFrequency(val)}
-                                        className={`py-2.5 rounded-xl text-sm font-bold transition-all border ${
-                                            frequency === val 
-                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-900/20' 
-                                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
-                                        }`}
-                                    >
-                                        {val === 1 ? 'Aylık' : `${val} Aylık`}
-                                    </button>
+                                    <button key={val} onClick={() => setFrequency(val)} className={`py-2 rounded-xl text-sm font-bold border ${frequency === val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>{val === 1 ? 'Aylık' : `${val} Aylık`}</button>
                                 ))}
                             </div>
                         </div>
                         
-                        {/* Bilgi Notu */}
                         <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex gap-3">
                             <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                            <p className="text-xs text-blue-200 leading-relaxed">
-                                Hesaplama araçları bilgilendirme amaçlıdır. Kesin sonuçlar başvuru sırasında değişiklik gösterebilir.
-                                <br/>
-                                <span className="font-semibold mt-1 block">Maksimum Kredi Tutarı:</span> İşletme Kredisi için {formatMoney(BUSINESS_MAX_AMOUNT)}, İşyeri Edindirme ve Taşıt Edindirme Kredileri için {formatMoney(BUILDING_MAX_AMOUNT)}'dir.
-                                <span className="font-semibold mt-1 block">Maksimum Kredi Vadesi:</span> {getMaxVadeText()}.
-                                <span className="font-semibold mt-1 block">Vade Seçimi:</span> Seçilen ödeme sıklığı ne olursa olsun, vade yalnızca yıllık (12, 24, 36...) katlar halinde belirlenebilir.
-                            </p>
+                            <p className="text-xs text-blue-200 leading-relaxed">Hesaplamalar bilgilendirme amaçlıdır. Taksit tutarları değişkenlik gösterir (Eşit Anapara Yöntemi).</p>
                         </div>
                     </div>
                 </div>
 
-                {/* --- SAĞ KOLON: SONUÇLAR (7 Birim) --- */}
                 <div className="lg:col-span-7 space-y-6">
-                    
-                    {/* Üst Kartlar: Taksit ve Toplam */}
-                    <div className="grid sm:grid-cols-2 gap-6">
-                        <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900/40 border border-emerald-500/30 p-6 rounded-3xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Calendar size={80} className="text-emerald-400" />
-                            </div>
-                            <p className="text-slate-400 text-sm mb-1 font-medium uppercase tracking-wide">Tahmini Taksit Tutarı ({getDisplayTerm()} Taksit)</p>
-                            <h3 className="text-3xl font-extrabold text-white">{formatMoney(results.installment)}</h3>
-                            <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 py-1 px-3 rounded-full w-fit">
-                                <RefreshCcw size={12} />
-                                Vade: {getVadeText()}
-                            </div>
-                        </div>
+                    {results && (
+                        <>
+                            <div className="grid sm:grid-cols-2 gap-6">
+                                <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900/40 border border-emerald-500/30 p-6 rounded-3xl relative overflow-hidden group">
+                                    <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">İlk Taksit Tutarı</p>
+                                    <h3 className="text-3xl font-extrabold text-white mt-1">{formatMoney(results.paymentSchedule[0].total)}</h3>
+                                    <div className="mt-3 flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 py-1 px-3 rounded-full w-fit">
+                                        <RefreshCcw size={12} /> Değişken Taksit
+                                    </div>
+                                </div>
 
-                        <div className="bg-gradient-to-br from-blue-900/40 to-slate-900/40 border border-blue-500/30 p-6 rounded-3xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Wallet size={80} className="text-blue-400" />
+                                <div className="bg-gradient-to-br from-blue-900/40 to-slate-900/40 border border-blue-500/30 p-6 rounded-3xl relative overflow-hidden group">
+                                    <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Ele Geçen Net Tutar</p>
+                                    <h3 className="text-3xl font-extrabold text-white mt-1">{formatMoney(results.netAmount)}</h3>
+                                    <div className="mt-3 flex items-center gap-2 text-blue-400 text-xs font-bold bg-blue-500/10 py-1 px-3 rounded-full w-fit">
+                                        <Wallet size={12} /> Tüm Kesintiler Dahil
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-slate-400 text-sm mb-1 font-medium uppercase tracking-wide">Ele Geçen Net Tutar</p>
-                            <h3 className="text-3xl font-extrabold text-white">{formatMoney(results.netAmount)}</h3>
-                            <div className="mt-4 flex items-center gap-2 text-blue-400 text-xs font-bold bg-blue-500/10 py-1 px-3 rounded-full w-fit">
-                                <Info size={12} />
-                                Kesintiler Düşülmüştür
+
+                            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-6">
+                                <h4 className="text-base font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-700 pb-3">
+                                    <PieChart className="w-4 h-4 text-slate-400" /> Peşin Kesinti Dökümü
+                                </h4>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Peşin Masraf (%{DEFAULT_RATES.pesinMasraf})</span> <span className="text-slate-200">{formatMoney(results.deductions.pesinMasraf)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Bloke Sermaye (%{DEFAULT_RATES.blokeSermaye})</span> <span className="text-slate-200">{formatMoney(results.deductions.blokeSermaye)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Risk Sermayesi (%{DEFAULT_RATES.riskSermayesi})</span> <span className="text-slate-200">{formatMoney(results.deductions.riskSermayesi)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">TESKOMB Payı (%{DEFAULT_RATES.teskomb})</span> <span className="text-slate-200">{formatMoney(results.deductions.teskomb)}</span></div>
+                                    <div className="flex justify-between text-xs col-span-2 border-t border-slate-700/50 pt-2 mt-1"><span className="text-slate-400">Bölge Birliği (%{DEFAULT_RATES.bolgeBirligi})</span> <span className="text-slate-200">{formatMoney(results.deductions.bolgeBirligi)}</span></div>
+                                    <div className="flex justify-between text-sm font-bold col-span-2 text-red-400"><span className="">Toplam Kesinti</span> <span>- {formatMoney(results.deductions.totalDeductions)}</span></div>
+                                </div>
                             </div>
+
+                            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-6">
+                                <h4 className="text-base font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-700 pb-3">
+                                    <TrendingUp className="w-4 h-4 text-slate-400" /> Geri Ödeme Özeti
+                                </h4>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Anapara</span> <span className="text-slate-200">{formatMoney(results.totals.principal)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Toplam Faiz</span> <span className="text-slate-200">{formatMoney(results.totals.interest)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Yıllık Komisyonlar (Vadeye Yayılı)</span> <span className="text-slate-200">{formatMoney(results.totals.commission)}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-400">Yıllık Masraflar (Vadeye Yayılı)</span> <span className="text-slate-200">{formatMoney(results.totals.expense)}</span></div>
+                                    <div className="flex justify-between text-sm font-bold border-t border-slate-700 pt-2 mt-2 text-emerald-400"><span>Toplam Geri Ödeme</span> <span>{formatMoney(results.totals.totalPayment)}</span></div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => setShowSchedule(!showSchedule)}
+                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <Table2 size={18} />
+                                {showSchedule ? 'Ödeme Planını Gizle' : 'Detaylı Ödeme Planını Görüntüle'}
+                                {showSchedule ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {showSchedule && results && (
+                <div className="mt-8 bg-slate-800/60 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+                        <h3 className="text-xl font-bold text-white">Ödeme Planı</h3>
+                        <div className="flex gap-2">
+                            <button onClick={handleShare} className="text-slate-400 hover:text-white text-xs flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                                <Share2 size={14} /> Paylaş
+                            </button>
+                            <button onClick={handlePrint} className="text-slate-400 hover:text-white text-xs flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                                <Printer size={14} /> Yazdır
+                            </button>
                         </div>
                     </div>
-
-                    {/* Detaylı Tablo */}
-                    <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-8">
-                        <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2 border-b border-slate-700 pb-4">
-                            <PieChart className="w-5 h-5 text-slate-400" />
-                            Hesaplama Detayları
-                        </h4>
-                        
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400">Kredi Tutarı (Brüt)</span>
-                                <span className="text-white font-bold">{formatMoney(amount)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400">Toplam Geri Ödeme</span>
-                                <span className="text-white font-bold">{formatMoney(results.totalRepayment)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-400">Toplam Faiz Tutarı ({INTEREST_RATE_DISPLAY} % Yıllık)</span>
-                                <span className="text-emerald-400 font-bold">+ {formatMoney(results.totalInterest)}</span>
-                            </div>
-                            
-                            <div className="border-t border-slate-700/50 my-4"></div>
-                            
-                            <div className="bg-slate-900/50 rounded-xl p-4 space-y-3">
-                                <p className="text-xs text-slate-500 font-bold uppercase mb-2">Kesinti Dökümü</p>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                        Bloke Sermaye (%1.5)
-                                    </span>
-                                    <span className="text-slate-200">{formatMoney(results.breakdown.bloke)}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                                        Masraf Karşılığı (%1.25)
-                                    </span>
-                                    <span className="text-slate-200">{formatMoney(results.breakdown.masraf)}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                                        Bölge Birliği Payı (%0.25)
-                                    </span>
-                                    <span className="text-slate-200">{formatMoney(results.breakdown.bolge)}</span>
-                                </div>
-                                <div className="border-t border-slate-700 pt-2 mt-2 flex justify-between items-center text-sm font-bold">
-                                    <span className="text-slate-300">Toplam Kesinti</span>
-                                    <span className="text-red-400">- {formatMoney(results.totalDeductions)}</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-400">
+                            <thead className="bg-slate-900 text-xs uppercase font-bold text-slate-300">
+                                <tr>
+                                    <th className="px-4 py-3">Taksit</th>
+                                    <th className="px-4 py-3">Tarih</th>
+                                    <th className="px-4 py-3">Gün</th>
+                                    <th className="px-4 py-3 text-right">Anapara</th>
+                                    <th className="px-4 py-3 text-right">Faiz</th>
+                                    <th className="px-4 py-3 text-right">Komisyon</th>
+                                    <th className="px-4 py-3 text-right">Masraf</th>
+                                    <th className="px-4 py-3 text-right text-white">Toplam Taksit</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-700/50">
+                                {results.paymentSchedule.map((row) => (
+                                    <tr key={row.installmentNumber} className="hover:bg-slate-700/30 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-white">{row.installmentNumber}</td>
+                                        <td className="px-4 py-3">{row.dueDate}</td>
+                                        <td className="px-4 py-3">{row.days}</td>
+                                        <td className="px-4 py-3 text-right">{formatMoney(row.principal)}</td>
+                                        <td className="px-4 py-3 text-right">{formatMoney(row.interest)}</td>
+                                        <td className="px-4 py-3 text-right">{formatMoney(row.commission)}</td>
+                                        <td className="px-4 py-3 text-right">{formatMoney(row.expense)}</td>
+                                        <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatMoney(row.total)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-900/80 font-bold text-white border-t border-slate-600">
+                                <tr>
+                                    <td colSpan={3} className="px-4 py-3 text-right uppercase">Toplamlar</td>
+                                    <td className="px-4 py-3 text-right">{formatMoney(results.totals.principal)}</td>
+                                    <td className="px-4 py-3 text-right">{formatMoney(results.totals.interest)}</td>
+                                    <td className="px-4 py-3 text-right">{formatMoney(results.totals.commission)}</td>
+                                    <td className="px-4 py-3 text-right">{formatMoney(results.totals.expense)}</td>
+                                    <td className="px-4 py-3 text-right text-emerald-400">{formatMoney(results.totals.totalPayment)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
                 </div>
+            )}
 
-            </div>
         </div>
       </main>
 
